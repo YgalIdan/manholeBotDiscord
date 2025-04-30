@@ -31,14 +31,9 @@ jobs:
       with:
         context: .
         push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/manhole_bot:${{ vars.VERSION }}
-
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: ${{ env.DOCKER_USER }}/${{ env.IMAGE_NAME }}:latest
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/manhole_bot:${{ vars.VERSION }}
+          ${{ secrets.DOCKER_USERNAME }}/manhole_bot:latest
 
     - name: Logout from Docker Hub
       run: docker logout
