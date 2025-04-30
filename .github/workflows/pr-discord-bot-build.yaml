@@ -15,7 +15,7 @@ jobs:
 
     env:
       IMAGE_NAME: manhole_bot
-      VERSION: ${{ var.VERSION }}
+      VERSION: ${{ vars.VERSION }}
       DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
 
