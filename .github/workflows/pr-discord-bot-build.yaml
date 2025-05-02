@@ -38,7 +38,7 @@ jobs:
     - name: Logout from Docker Hub
       run: docker logout
 
-  deploy_on_target:
+  deploy-on-target:
     runs-on: ubuntu-latest
     needs: build-and-push
     steps:
@@ -57,7 +57,7 @@ jobs:
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
         chmod 600 private_key.pem
         eval "$(ssh-agent -s)"
-        ssh-add private_key.pem"
+        ssh-add private_key.pem
 
     - name: Disable host key checking
       run: echo "ANSIBLE_HOST_KEY_CHECKING=False" >> $GITHUB_ENV
