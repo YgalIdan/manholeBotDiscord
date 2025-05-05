@@ -6,6 +6,9 @@
     - name: Stop container "manhole_bot"
       shell: docker stop manhole_bot
 
+    - name: Remove container "manhole_bot"
+      shell: docker stop manhole_bot
+
     - name: Remove image "manhole_bot"
       shell: docker image rm manhole_bot:latest
 
