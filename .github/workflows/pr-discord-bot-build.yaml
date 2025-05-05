@@ -54,10 +54,10 @@ jobs:
 
     - name: Add ssh key
       run: |
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
-        chmod 400 private_key.pem
-        eval "$(ssh-agent -s)"
-        ssh-add private_key.pem
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -p 2222 147.235.230.164 >> ~/.ssh/known_hosts
 
     - name: Disable host key checking
       run: echo "ANSIBLE_HOST_KEY_CHECKING=False" >> $GITHUB_ENV
