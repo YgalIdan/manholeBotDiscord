@@ -5,15 +5,18 @@
   tasks:
     - name: Stop container "manhole_bot"
       shell: docker stop manhole_bot
+      ignore_errors: yes
 
     - name: Remove container "manhole_bot"
-      shell: docker stop manhole_bot
+      shell: docker rm manhole_bot
+      ignore_errors: yes
 
     - name: Remove image "manhole_bot"
-      shell: docker image rm manhole_bot:latest
+      shell: docker image rm ygalidan/manhole_bot:latest
+      ignore_errors: yes
 
     - name: update image of "manhole_bot" from DockerHub
-      shell: docker pull manhole_bot:latest
+      shell: docker pull ygalidan/manhole_bot:latest
 
     - name: Start container "manhole_bot"
-      shell: docker run -d --name manhole_bot manhole_bot:latest
+      shell: docker run -d --name manhole_bot ygalidan/manhole_bot:latest
