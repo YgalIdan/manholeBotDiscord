@@ -63,5 +63,7 @@ jobs:
       run: echo "ANSIBLE_HOST_KEY_CHECKING=False" >> $GITHUB_ENV
 
     - name: Deploy
+      env:
+        TOKEN: ${{ secrets.TOKEN_BOT }}
       run: |
         ansible-playbook -i Ansible/inventory.yaml Ansible/playbook.yaml

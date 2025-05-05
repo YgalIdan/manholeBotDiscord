@@ -19,4 +19,4 @@
       shell: docker pull ygalidan/manhole_bot:latest
 
     - name: Start container "manhole_bot"
-      shell: docker run -d --name manhole_bot ygalidan/manhole_bot:latest
+      shell: docker run -d --name manhole_bot -e TOKEN={{ lookup('env', 'TOKEN') }} ygalidan/manhole_bot:latest
