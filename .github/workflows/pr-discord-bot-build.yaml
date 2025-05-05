@@ -55,7 +55,7 @@ jobs:
     - name: Add ssh key
       run: |
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
-        chmod 600 private_key.pem
+        chmod 400 private_key.pem
         eval "$(ssh-agent -s)"
         ssh-add private_key.pem
 
