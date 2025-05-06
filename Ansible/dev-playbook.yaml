@@ -1,0 +1,22 @@
+---
+- name: Basic commands on remote host
+  hosts: all
+
+  tasks:
+    - name: Stop container "manhole_bot"
+      shell: docker stop manhole_bot_test
+      ignore_errors: yes
+
+    - name: Remove container "manhole_bot"
+      shell: docker rm manhole_bot_test
+      ignore_errors: yes
+
+    - name: Remove image "manhole_bot"
+      shell: docker image rm ygalidan/manhole_bot:{{ tag }}
+      ignore_errors: yes
+
+    - name: update image of "manhole_bot" from DockerHub
+      shell: docker pull ygalidan/manhole_bot:{{ tag }}
+
+    - name: Start container "manhole_bot"
+      shell: docker run -d --name manhole_bot_test -e TOKEN_BOT={{ TOKEN_BOT }} ygalidan/manhole_bot:{{ tag }}
