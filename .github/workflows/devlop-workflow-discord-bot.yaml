@@ -24,7 +24,8 @@ jobs:
 
     - name: Set image tag with short commit hash
       run: |
-        echo "TAG=test-${{ github.sha::5 }}" >> $GITHUB_ENV
+        short_sha=$(echo "${{ github.sha }}"" | cut -c1-5)
+        echo "TAG=test-${short_sha}" >> $GITHUB_ENV
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
