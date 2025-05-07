@@ -25,9 +25,11 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: Set image tag with short commit hash
+      id: set_image_tag
       run: |
         short_sha=$(echo "${{ github.sha }}" | cut -c1-5)
-        echo "TAG=test-${short_sha}" >> $GITHUB_ENV
+        echo $short_sha
+        echo tag="test-$short_sha" >> $GITHUB_OUTPUT
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
@@ -35,7 +37,7 @@ jobs:
         context: .
         push: true
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/manhole_bot:${{ env.TAG }}
+          ${{ secrets.DOCKER_USERNAME }}/manhole_bot:${{ steps.set_image_tag.outputs.tag }}
 
     - name: Logout from Docker Hub
       run: docker logout
