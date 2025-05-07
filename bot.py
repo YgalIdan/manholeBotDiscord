@@ -20,6 +20,7 @@ bot = commands.Bot(command_prefix=start_with, intents=intents)
 @bot.event
 async def on_ready():
     print(f'Bot connected as {bot.user}')
+    autoDisconnect.start()
 
 @bot.command()
 async def test(ctx):
@@ -86,7 +87,7 @@ async def stop(ctx):
     else:
         await ctx.send("I'm not connected to a voice channel.")
 
-@bot.loop(seconds=(60))
+@tasks.loop(seconds=60)
 async def autoDisconnect(ctx):
     if ctx.voice_client and not ctx.voice_client.is_playing():
         await ctx.voice_client.disconnect()
