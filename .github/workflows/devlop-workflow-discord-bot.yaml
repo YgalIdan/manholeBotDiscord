@@ -1,12 +1,16 @@
 name: Build & Push & Update | Discord Bot Manhole
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - develop
 
+  workflow_dispatch:
+
 jobs:
   build-and-push:
+    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.set_image_tag.outputs.tag }}
@@ -71,4 +75,4 @@ jobs:
 
     - name: Deploy
       run: |
-        ansible-playbook -i Ansible/inventory.yaml Ansible/dev-playbook.yaml --extra-vars "TOKEN_BOT=${{ secrets.TOKEN_BOT_TEST }} tag=$tag"
+        ansible-playbook -i Ansible/inventory.yaml Ansible/dev-playbook.yaml --extra-vars "TOKEN_BOT=${{ secrets.TOKEN_BOT_TEST }} START_WITH=${{ vars.START_WITH_DEV }} tag=$tag"

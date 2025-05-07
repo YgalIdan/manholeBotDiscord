@@ -64,4 +64,4 @@ jobs:
 
     - name: Deploy
       run: |
-        ansible-playbook -i Ansible/inventory.yaml Ansible/playbook.yaml --extra-vars "TOKEN_BOT=${{ secrets.TOKEN_BOT }}"
+        ansible-playbook -i Ansible/inventory.yaml Ansible/playbook.yaml --extra-vars "TOKEN_BOT=${{ secrets.TOKEN_BOT }} START_WITH=${{ vars.START_WITH_PROD }}"

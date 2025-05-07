@@ -4,6 +4,7 @@ from discord.ext import commands
 import yt_dlp
 
 token = os.getenv("TOKEN_BOT")
+start_with = os.getenv("START_WITH")
 
 if token:
     print("Token loaded successfully.")
@@ -14,7 +15,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix=start_with, intents=intents)
 
 @bot.event
 async def on_ready():
