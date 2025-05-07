@@ -88,8 +88,10 @@ async def stop(ctx):
         await ctx.send("I'm not connected to a voice channel.")
 
 @tasks.loop(seconds=60)
-async def autoDisconnect(ctx):
-    if ctx.voice_client and not ctx.voice_client.is_playing():
-        await ctx.voice_client.disconnect()
+async def autoDisconnect():
+    for guild in bot.guilds:
+        vc = guild.voice_client
+        if vc and not vc.is_playing():
+            await vc.disconnect()
 
 bot.run(token)
