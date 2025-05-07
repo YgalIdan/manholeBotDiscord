@@ -1,4 +1,4 @@
-name: Build & Push & Update | Discord Bot Manhole
+name: "DEV: Build & Push & Update | Discord Bot Manhole"
 
 on:
   pull_request:
