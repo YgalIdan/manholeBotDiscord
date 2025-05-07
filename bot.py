@@ -1,6 +1,6 @@
 import os
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import yt_dlp
 
 token = os.getenv("TOKEN_BOT")
@@ -85,5 +85,10 @@ async def stop(ctx):
         await ctx.send("⏹️ Stopped the music.")
     else:
         await ctx.send("I'm not connected to a voice channel.")
+
+@bot.loop(seconds=(60))
+async def autoDisconnect(ctx):
+    if ctx.voice_client and not ctx.voice_client.is_playing():
+        await ctx.voice_client.disconnect()
 
 bot.run(token)
