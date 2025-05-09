@@ -124,9 +124,9 @@ async def stop(ctx):
 @bot.command()
 async def sq(ctx):
     if not show_queue():
-        await ctx.send("🚫 The queue is empty. Add some songs to keep the party going!")
+        await ctx.send(" The queue is empty. Add some songs to keep the party going!")
         return
-    await ctx.send(f"📃 The queue:\n{show_queue()}")
+    await ctx.send(f" The queue:\n{show_queue()}")
 
 @tasks.loop(seconds=60)
 async def autoDisconnect():
