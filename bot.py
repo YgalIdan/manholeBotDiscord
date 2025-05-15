@@ -49,9 +49,7 @@ def pop_queue():
         
 
 def after_song(ctx, error=None):
-    if not show_queue():
-        autoDisconnect.start()
-        return
+    autoDisconnect.start()
     coro = play(ctx, url=None)
     future = asyncio.run_coroutine_threadsafe(coro, ctx.bot.loop)
     try:
