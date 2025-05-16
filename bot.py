@@ -49,7 +49,6 @@ def pop_queue():
         
 
 def after_song(ctx, error=None):
-    autoDisconnect.start()
     coro = play(ctx, url=None)
     future = asyncio.run_coroutine_threadsafe(coro, ctx.bot.loop)
     try:
@@ -66,6 +65,7 @@ def show_queue():
 async def on_ready():
     open("queue", 'w').close()
     print(f'Bot connected as {bot.user}')
+    autoDisconnect.start()
 
 
 @bot.command()
@@ -89,13 +89,13 @@ async def play(ctx, url):
             return
     
     audio_url, audio_name = pop_queue()
-    if not audio_url:
+    if audio_url:
+        source = discord.FFmpegPCMAudio(audio_url,before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5')
+        ctx.voice_client.play(source, after=partial(after_song, ctx))
+        bot_pause = False
+        await ctx.send(f"Now playing: {audio_name}")
+    else:
         await ctx.send("No more songs in the queue.")
-        return
-    source = discord.FFmpegPCMAudio(audio_url,before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5')
-    ctx.voice_client.play(source, after=partial(after_song, ctx))
-    bot_pause = False
-    await ctx.send(f"Now playing: {audio_name}")
 
 @bot.command()
 async def pause(ctx):
