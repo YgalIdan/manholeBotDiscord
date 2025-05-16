@@ -18,6 +18,7 @@ intents.message_content = True
 intents.voice_states = True
 
 bot = commands.Bot(command_prefix=start_with, intents=intents)
+bot_pause = False
 
 def add_to_queue(youtube_url):
     with open("queue", 'a') as queue:
@@ -33,6 +34,7 @@ def add_to_queue(youtube_url):
             info = ydl.extract_info(youtube_url, download=False)
             queue.write(info['url'] + '\n' + info['title'] + '\n')
 
+
 def pop_queue():
     with open("queue", 'r') as queue:
         lines = queue.readlines()
@@ -44,6 +46,7 @@ def pop_queue():
             return audio_url, audio_name
         else:
             return None
+        
 
 def after_song(ctx, error=None):
     coro = play(ctx, url=None)
@@ -56,14 +59,7 @@ def after_song(ctx, error=None):
 def show_queue():
     with open("queue", 'r') as queue:
         lines = queue.readlines()
-    song_in_queue = []
-    str = ""
-    if lines:
-        for i in range(1, len(lines), 2):
-            song_in_queue.append(lines[i])
-    for i in range(len(song_in_queue)):
-        str += f"{i+1}. {song_in_queue[i]}"
-    return str
+    return lines
 
 @bot.event
 async def on_ready():
@@ -83,22 +79,30 @@ async def play(ctx, url):
     if url:
         add_to_queue(url)
         if ctx.voice_client and ctx.voice_client.is_playing():
-            await ctx.send(f"Adding the song to the queue:\n{show_queue()}")
+            queue = show_queue()
+            str = ""
+            index = 1
+            for i in range(1,len(queue),2):
+                str += f"{index}. {queue[i]}"
+                index += 1
+            await ctx.send(f"Adding the song to the queue:\n{str}")
             return
     
     audio_url, audio_name = pop_queue()
-    if not audio_url:
+    if audio_url:
+        source = discord.FFmpegPCMAudio(audio_url,before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5')
+        ctx.voice_client.play(source, after=partial(after_song, ctx))
+        bot_pause = False
+        await ctx.send(f"Now playing: {audio_name}")
+    else:
         await ctx.send("No more songs in the queue.")
-        return
-    source = discord.FFmpegPCMAudio(audio_url,before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5')
-    ctx.voice_client.play(source, after=partial(after_song, ctx))
-    await ctx.send(f"Now playing: {audio_name}")
 
 @bot.command()
 async def pause(ctx):
     vc = ctx.voice_client
     if vc and vc.is_playing():
         vc.pause()
+        bot_pause = True
         await ctx.send("⏸️ Paused the music.")
     else:
         await ctx.send("There's nothing playing right now.")
@@ -108,6 +112,7 @@ async def resume(ctx):
     vc = ctx.voice_client
     if vc and vc.is_paused():
         vc.resume()
+        bot_pause = False
         await ctx.send("▶️ Resumed the music.")
     else:
         await ctx.send("The music isn't paused.")
@@ -118,6 +123,7 @@ async def stop(ctx):
     if vc:
         vc.stop()
         await ctx.send("⏹️ Stopped the music.")
+        await vc.disconnect()
     else:
         await ctx.send("I'm not connected to a voice channel.")
 
@@ -126,13 +132,90 @@ async def sq(ctx):
     if not show_queue():
         await ctx.send("🚫 The queue is empty. Add some songs to keep the party going!")
         return
-    await ctx.send(f"📃 The queue:\n{show_queue()}")
+    song_in_queue = []
+    str = ""
+    lines = show_queue()
+    if lines:
+        for i in range(1, len(lines), 2):
+            song_in_queue.append(lines[i])
+    for i in range(len(song_in_queue)):
+        str += f"{i+1}. {song_in_queue[i]}"
+    await ctx.send(f"📃 The queue:\n{str}")
 
-@tasks.loop(seconds=60)
+@bot.command()
+async def skip(ctx):
+    if not show_queue():
+        await ctx.send("🚫 The queue is empty.")
+        return
+    vc = ctx.voice_client
+    if vc and vc.is_playing():
+        vc.stop()
+
+@bot.command()
+async def jump(ctx, index: int):
+    vc = ctx.voice_client
+    if vc:
+        lines = show_queue()
+        if index > len(lines)/2:
+            await ctx.send("🚫 Invalid index.")
+            return
+        for i in range(index-1):
+            pop_queue()
+        vc.stop()
+        await ctx.send(f"Jump to song {index} position in queue!")
+    else:
+        await ctx.send("I'm not connected to a voice channel.")
+
+@bot.command()
+async def remove(ctx, index: int):
+    vc = ctx.voice_client
+    if vc:
+        lines = show_queue()
+        if index > len(lines)/2:
+            await ctx.send("🚫 Invalid index.")
+            return
+        with open("queue", 'w') as queue:
+            queue.writelines(lines[:index*2-2])
+            queue.writelines(lines[index*2:])
+        await ctx.send(f"Remove song {index} position in queue!")
+        await sq(ctx)
+    else:
+        await ctx.send("I'm not connected to a voice channel.")
+
+@bot.command()
+async def clear(ctx):
+    vc = ctx.voice_client
+    if vc:
+        lines = show_queue()
+        if not lines:
+            await ctx.send("🚫 The queue is empty.")
+            return
+        open("queue", 'w').close()
+        await ctx.send("🗑️ Queue cleared!")
+    else:
+        await ctx.send("I'm not connected to a voice channel.")
+
+@bot.command()
+async def top(ctx, index: int):
+    vc = ctx.voice_client
+    if vc:
+        lines = show_queue()
+        if not lines:
+            await ctx.send("🚫 The queue is empty.")
+            return
+        with open("queue", 'w') as queue:
+            queue.writelines(lines[index*2-2:index*2])
+            queue.writelines(lines[:index*2-2])
+            queue.writelines(lines[index*2:])
+    else:
+        await ctx.send("I'm not connected to a voice channel.")
+
+
+@tasks.loop(seconds=200)
 async def autoDisconnect():
     for guild in bot.guilds:
         vc = guild.voice_client
-        if vc and not vc.is_playing():
+        if vc and not vc.is_playing() and not bot_pause:
             await vc.disconnect()
 
 bot.run(token)
