@@ -8,6 +8,7 @@ from functools import partial
 token = os.getenv("TOKEN_BOT")
 start_with = os.getenv("START_WITH")
 
+
 if token:
     print("Token loaded successfully.")
 else:
