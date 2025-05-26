@@ -1,55 +1,87 @@
 # 🎶 Manhole Music Bot
 
-A lightweight and easy-to-use Discord music bot written in Python using `discord.py`.  
-Supports queueing, playback control, and automatic behavior handling.
+A lightweight and updated Discord music bot written in Python using `discord.py v2` and full support for **slash commands** (`/command` interface).  
+Plays music from YouTube, manages queue, and auto-disconnects when idle.
+
+> ✅ **Current version: v2.0.0**  
+> ✨ Now using `discord.app_commands` instead of legacy `@bot.command`.
 
 ---
 
-## 📦 Features
+## 🚀 What's New in v2.0.0
 
-- Play music from YouTube links
-- Automatic queue handling
-- Auto-disconnect when idle
-- Simple and clear commands
+- ✅ Full migration to [Slash Commands](https://discord.com/blog/slash-commands-are-here)
+- ✅ All commands re-written using `discord.app_commands`
+- ✅ Commands now support auto-complete, inline descriptions, and dynamic feedback
+- ✅ Defer mechanism implemented to prevent webhook timeout issues
+- ✅ Improved queue management (add, remove, jump, top)
+- ✅ Better structure for `play_next_song()` logic
 
 ---
 
-## 🛠️ Commands
+## 🛠️ Available Slash Commands
 
-### ▶️ `!play <url>`
-Plays a song from the provided URL (YouTube).  
-- If a song is already playing, the new song is added to the end of the queue.
-- The current queue is displayed after adding the song.
+All commands must be used with `/` in any text channel where the bot is active.
 
-### ⏸️ `!pause`
-Pauses the currently playing song.
+### 🎵 `/play <url>`
+Play a song from a YouTube URL or search term.
+- If a song is already playing, the song is added to the queue.
+- If not, it plays immediately.
 
-### ⏯️ `!resume`
-Resumes playback of a paused song.
+### ⏸️ `/pause`
+Pause the currently playing song.
 
-### ⏹️ `!stop`
-Stops playback and clears the queue.
+### ▶️ `/resume`
+Resume playback if paused.
 
-### 📃 `!sq`
-Displays the current queue of songs in order.
+### ⏹️ `/stop`
+Stop playback and disconnect the bot from the voice channel.
+
+### 📃 `/sq`
+Display the current queue in order.
+
+### ⏭️ `/skip`
+Skip the current song and automatically play the next one in queue.
+
+### 🔢 `/jump <index>`
+Jump to a specific song number in the queue.
+
+### ❌ `/remove <index>`
+Remove a specific song from the queue by its position.
+
+### 🗑️ `/clear`
+Clear the entire song queue.
+
+### ⬆️ `/top <index>`
+Move a specific song in the queue to the top.
 
 ---
 
 ## ⚙️ Automatic Behaviors
 
-- ✅ **Queue System**:  
-  Songs added while one is already playing are placed at the end of the queue.
+- ✅ **Auto-queue handling**  
+  New songs added while one is playing will queue up automatically.
+  
+- ✅ **Auto-play next**  
+  When a song ends, the next one plays immediately using a coroutine-safe callback.
 
-- ✅ **Auto-Playback**:  
-  When a song ends, the next song in the queue is automatically played.
-
-- ✅ **Auto-Disconnect**:  
-  If no songs are playing and the queue is empty, the bot disconnects from the voice channel automatically after a short delay.
+- ✅ **Auto-disconnect**  
+  If no audio is playing for 200 seconds, the bot disconnects automatically from the voice channel.
 
 ---
 
-## 🚀 Getting Started
+## 📦 Requirements
+
+- Python 3.9+
+- `discord.py` 2.0+
+- `yt_dlp`
+- `ffmpeg` installed and available in PATH
+
+---
+
+## 🧪 Local Environment Setup
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/YgalIdan/manhole-music-bot.git
+   git clone https://github.com/YOUR_USERNAME/manholeBotDiscord.git
+   cd manholeBotDiscord
