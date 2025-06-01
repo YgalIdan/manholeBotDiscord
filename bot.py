@@ -4,6 +4,7 @@ from discord.ext import commands, tasks
 from discord import app_commands
 import yt_dlp
 import asyncio
+from yt_dlp import YoutubeDL
 
 token = os.getenv("TOKEN_BOT")
 start_with = os.getenv("START_WITH")
@@ -69,6 +70,16 @@ def build_queue():
     return str
 
 
+def search_youtube(query):
+    with YoutubeDL({'quiet': True}) as ydl:
+        try:
+            info = ydl.extract_info(f"ytsearch:{query}", download=False)['entries'][0]
+            return info['webpage_url']
+        except Exception as e:
+            print(f"Error searching YouTube: {e}")
+            return None
+
+
 async def play_next_song(vc, interaction=None):
     result = pop_queue()
     if result:
@@ -83,8 +94,8 @@ async def play_next_song(vc, interaction=None):
 
 
 @bot.tree.command(name="play", description="Play a song from YouTube", guild=GUILD_Id)
-@app_commands.describe(url="YouTube URL")
-async def play(interaction: discord.Interaction, url: str):
+@app_commands.describe(query="YouTube URL or Name of song")
+async def play(interaction: discord.Interaction, query: str):
     await interaction.response.defer()
     
     if not interaction.user.voice:
@@ -95,7 +106,11 @@ async def play(interaction: discord.Interaction, url: str):
     if not vc:
         vc = await interaction.user.voice.channel.connect()
 
-    add_to_queue(url)
+    if "http" in query:
+        add_to_queue(query)
+    else:
+        add_to_queue(search_youtube(query))
+
     if vc.is_playing():
         queue = show_queue()
         queue_str = ""
