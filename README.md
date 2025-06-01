@@ -23,10 +23,12 @@ Plays music from YouTube, manages queue, and auto-disconnects when idle.
 
 All commands must be used with `/` in any text channel where the bot is active.
 
-### 🎵 `/play <url>`
-Play a song from a YouTube URL or search term.
-- If a song is already playing, the song is added to the queue.
-- If not, it plays immediately.
+### 🎵 `/play <query>`
+Play a song from a YouTube URL or a search term.
+- If `<query>` is a YouTube URL, it plays the specified song.
+- If `<query>` is a search term (e.g., song name or artist), it searches YouTube and plays the top result.
+- If a song is already playing, the new song or search result is added to the queue.
+- If no song is playing, it plays immediately.
 
 ### ⏸️ `/pause`
 Pause the currently playing song.
