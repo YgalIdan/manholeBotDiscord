@@ -1,22 +1,22 @@
 # 🎶 Manhole Music Bot
 
 A lightweight and updated Discord music bot written in Python using `discord.py v2` and full support for **slash commands** (`/command` interface).  
-Plays music from YouTube by URL or search query, manages queue, and auto-disconnects when idle.
+Plays music from YouTube by URL or search query, manages queue and playlists, and auto-disconnects when idle.
 
-> ✅ **Current version: v2.0.1**  
-> ✨ Now using `discord.app_commands` instead of legacy `@bot.command`.
+> ✅ **Current version: v2.1.0**  
+> ✨ Added full playlist support and improved stop command behavior.
 
 ---
 
-## 🚀 What's New in v2.0.1
+## 🚀 What's New in v2.1.0
 
-- ✅ Full migration to [Slash Commands](https://discord.com/blog/slash-commands-are-here)  
-- ✅ All commands re-written using `discord.app_commands`  
-- ✅ Commands now support auto-complete, inline descriptions, and dynamic feedback  
-- ✅ Defer mechanism implemented to prevent webhook timeout issues  
-- ✅ Improved queue management (add, remove, jump, top)  
-- ✅ Better structure for `play_next_song()` logic  
-- ✅ Enhanced `/play` command – supports playing by YouTube URL **or** search queries (song name, artist) with automatic top-result playback from YouTube search  
+- ✅ **Full playlist support**  
+  Now you can load and play entire playlists seamlessly, with continuous playback of multiple tracks.  
+
+- ✅ **Stop command fix**  
+  When using `/stop`, the entire queue is now cleared automatically to prevent leftover songs in the queue.
+
+- ✅ Minor bug fixes and performance improvements.
 
 ---
 
@@ -24,12 +24,10 @@ Plays music from YouTube by URL or search query, manages queue, and auto-disconn
 
 All commands must be used with `/` in any text channel where the bot is active.
 
-### 🎵 `/play <query>`
-Play a song from a YouTube URL or a search term.
-- If `<query>` is a YouTube URL, it plays the specified song.
-- If `<query>` is a search term (e.g., song name or artist), it searches YouTube and plays the top result.
-- If a song is already playing, the new song or search result is added to the queue.
-- If no song is playing, it plays immediately.
+### 🎵 `/play <query or playlist URL>`
+Play a song or an entire playlist from a YouTube URL or search term.
+- If `<query>` is a YouTube video URL or search term, plays the song or queues it.
+- If a playlist URL is provided, queues all songs in the playlist for continuous playback.
 
 ### ⏸️ `/pause`
 Pause the currently playing song.
@@ -38,7 +36,8 @@ Pause the currently playing song.
 Resume playback if paused.
 
 ### ⏹️ `/stop`
-Stop playback and disconnect the bot from the voice channel.
+Stop playback and disconnect the bot from the voice channel.  
+**Note:** This now also clears the entire queue.
 
 ### 📃 `/sq`
 Display the current queue in order.
@@ -63,7 +62,7 @@ Move a specific song in the queue to the top.
 ## ⚙️ Automatic Behaviors
 
 - ✅ **Auto-queue handling**  
-  New songs added while one is playing will queue up automatically.
+  New songs or playlists added while one is playing will queue up automatically.
   
 - ✅ **Auto-play next**  
   When a song ends, the next one plays immediately using a coroutine-safe callback.
@@ -75,16 +74,16 @@ Move a specific song in the queue to the top.
 
 ## 📦 Requirements
 
-- Python 3.9+
-- `discord.py` 2.0+
-- `yt_dlp`
-- `ffmpeg` installed and available in PATH
+- Python 3.9+  
+- `discord.py` 2.0+  
+- `yt_dlp`  
+- `ffmpeg` installed and available in PATH  
 
 ---
 
 ## 🧪 Local Environment Setup
 
-1. Clone the repository:
+1. Clone the repository:  
    ```bash
-   git clone https://github.com/YOUR_USERNAME/manholeBotDiscord.git
+   git clone https://github.com/YgalIdan/manholeBotDiscord.git
    cd manholeBotDiscord

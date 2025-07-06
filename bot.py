@@ -37,6 +37,27 @@ def add_to_queue(youtube_url):
             info = ydl.extract_info(youtube_url, download=False)
             queue.write(info['url'] + '\n' + info['title'] + '\n')
 
+    return "&list=" in youtube_url
+
+
+def add_album_in_queue(youtube_url):
+    with open("queue", 'a') as queue:
+        ydl_opts = {
+        'format': 'bestaudio',
+        'quiet': True,
+        'default_search': 'auto',
+        'noplaylist': False
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(youtube_url, download=False)
+            if 'entries' in info:
+                for entry in info['entries'][1:]:
+                    if entry:
+                        queue.write(entry['url'] + '\n' + entry['title'] + '\n')
+            else:
+                queue.write(info['url'] + '\n' + info['title'] + '\n')
+
 
 def pop_queue():
     with open("queue", 'r') as queue:
@@ -118,9 +139,15 @@ async def play(interaction: discord.Interaction, query: str):
         for i in range(1, len(queue), 2):
             queue_str += f"{index}. {queue[i]}"
             index += 1
+
         await interaction.followup.send(f"🎶 Added to queue:\n{queue_str}")
     else:
         await play_next_song(vc, interaction)
+
+    if "&list=" in query.lower() and "&list=rd" not in query.lower():
+        await interaction.followup.send("📀 Loading playlist... Please wait.")
+        await asyncio.get_event_loop().run_in_executor(None, add_album_in_queue, query)
+        await interaction.followup.send("✅ Playlist loaded!")
 
 
 @bot.tree.command(name="pause", description="Pause a song", guild=GUILD_Id)
@@ -154,6 +181,7 @@ async def resume(interaction: discord.Interaction):
 @bot.tree.command(name="stop", description="Stop a song", guild=GUILD_Id)
 async def stop(interaction: discord.Interaction):
     await interaction.response.defer()
+    open("queue", 'w').close()
     vc = interaction.guild.voice_client
     if vc:
         vc.stop()
