@@ -10,6 +10,7 @@ token = os.getenv("TOKEN_BOT")
 start_with = os.getenv("START_WITH")
 GUILD_Id = discord.Object(id=797091616807583745)
 
+
 if token:
     print("Token loaded successfully.")
 else:
