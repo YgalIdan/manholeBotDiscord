@@ -55,6 +55,7 @@ jobs:
 
     - name: Install Ansible
       run: |
+        echo ${{ secrets.TOKEN_BOT }}
         echo $tag
         sudo apt update
         sudo apt install -y software-properties-common
