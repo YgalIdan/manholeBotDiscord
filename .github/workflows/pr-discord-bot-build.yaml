@@ -56,8 +56,8 @@ jobs:
       run: |
         mkdir -p ~/.ssh
         cat << 'EOF' > ~/.ssh/id_rsa
-${{ secrets.SSH_PRIVATE_KEY }}
-EOF
+        ${{ secrets.SSH_PRIVATE_KEY }}
+        EOF
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan 147.235.230.164 >> ~/.ssh/known_hosts
 
