@@ -1,2 +1,2 @@
 [all]
-ygalServer ansible_host=147.235.230.164 ansible_port=2222 ansible_user=ygal
+ec2 ansible_host=54.242.32.239 ansible_port=22 ansible_user=ec2-user
