@@ -55,9 +55,7 @@ jobs:
     - name: Add ssh key
       run: |
         mkdir -p ~/.ssh
-        cat > ~/.ssh/id_rsa << 'EOF'
-${{ secrets.SSH_PRIVATE_KEY }}
-EOF
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan 147.235.230.164 >> ~/.ssh/known_hosts
 
