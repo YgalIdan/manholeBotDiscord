@@ -24,11 +24,28 @@ bot_paused = False
 
 # --- YOUTUBE SEARCH ---
 def search_youtube(query):
-    with yt_dlp.YoutubeDL({'quiet': True, 'default_search': 'ytsearch1'}) as ydl:
+    ydl_opts = {
+        'quiet': True,
+        'format': 'bestaudio/best',
+        'default_search': 'ytsearch1',
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(query, download=False)
+
         if 'entries' in info:
             info = info['entries'][0]
-        return info['url'], info['title']
+
+        # Search for format with url
+        for f in info.get("formats", []):
+            if f.get("acodec") != "none" and f.get("url"):
+                return f["url"], info.get("title", "Unknown Title")
+
+        # fallback - some videos now hide URL formats
+        if info.get("url"):
+            return info["url"], info.get("title", "Unknown Title")
+
+        raise Exception("No playable URL found")
 
 
 # --- PLAY LOOP (ONE TASK ONLY!) ---
