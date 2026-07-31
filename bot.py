@@ -1,4 +1,5 @@
 import os
+import time
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
@@ -16,6 +17,20 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix=start_with, intents=intents)
 
+YDL_OPTS = {
+    "quiet": True,
+    "noplaylist": True,
+    "default_search": "ytsearch",
+    "format": "bestaudio/best",
+    "skip_download": True,
+    "extract_flat": False,
+}
+
+ydl = yt_dlp.YoutubeDL(YDL_OPTS)
+
+youtube_cache = {}
+CACHE_TTL = 60 * 60
+
 # --- NEW: REAL QUEUE IN MEMORY ---
 song_queue = asyncio.Queue()
 now_playing = None
@@ -23,45 +38,60 @@ bot_paused = False
 
 
 # --- YOUTUBE SEARCH ---
-def search_youtube(query):
-    ydl_opts = {
-        "quiet": True,
-        "noplaylist": True,
-        "default_search": "ytsearch",
-        "format": "bestaudio/best",
-        "extract_flat": False,
-        "skip_download": True,
-    }
+def search_youtube(query: str):
+    key = query.lower().strip()
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(query, download=False)
+    # Cache
+    cached = youtube_cache.get(key)
+    if cached:
+        ts, value = cached
 
-        if "entries" in info:
-            info = next((e for e in info["entries"] if e), None)
+        if time.time() - ts < CACHE_TTL:
+            return value
 
-        if not info:
-            raise Exception("No search results")
+        del youtube_cache[key]
 
-        # URL שניתן לנגן
-        url = info.get("url")
+    info = ydl.extract_info(query, download=False)
 
-        # אם אין url, נסה לקחת מהפורמט הטוב ביותר
-        if not url:
-            formats = info.get("formats", [])
-            audio_formats = [
-                f for f in formats
-                if f.get("acodec") != "none" and f.get("url")
-            ]
+    if "entries" in info:
+        info = next((e for e in info["entries"] if e), None)
 
-            if audio_formats:
-                # העדף bitrate גבוה יותר
-                audio_formats.sort(key=lambda f: f.get("abr") or 0, reverse=True)
-                url = audio_formats[0]["url"]
+    if info is None:
+        raise Exception("No search results")
 
-        if not url:
-            raise Exception("No playable audio stream found")
+    url = info.get("url")
 
-        return url, info.get("title", "Unknown Title")
+    if not url:
+        formats = info.get("formats", [])
+
+        audio_formats = [
+            f for f in formats
+            if f.get("acodec") != "none"
+            and f.get("url")
+        ]
+
+        if audio_formats:
+            audio_formats.sort(
+                key=lambda f: f.get("abr") or 0,
+                reverse=True,
+            )
+
+            url = audio_formats[0]["url"]
+
+    if not url:
+        raise Exception("No playable audio stream")
+
+    result = (
+        url,
+        info.get("title", "Unknown Title")
+    )
+
+    youtube_cache[key] = (
+        time.time(),
+        result,
+    )
+
+    return result
 
 
 # --- PLAY LOOP (ONE TASK ONLY!) ---
@@ -100,7 +130,7 @@ async def player_loop(vc, interaction):
 @bot.tree.command(name="play", description="Play a song", guild=GUILD_Id)
 @app_commands.describe(query="YouTube URL or song name")
 async def play(interaction: discord.Interaction, query: str):
-    await interaction.response.defer()
+    await interaction.response.defer(thinking=True)
 
     # Must be in voice
     if not interaction.user.voice:
@@ -114,7 +144,7 @@ async def play(interaction: discord.Interaction, query: str):
 
     # Search YouTube
     try:
-        url, title = search_youtube(query)
+        url, title = await asyncio.to_thread(search_youtube, query)
     except Exception as e:
         print(e)
         return await interaction.followup.send(
@@ -135,7 +165,7 @@ async def play(interaction: discord.Interaction, query: str):
 
 @bot.tree.command(name="skip", description="Skip song", guild=GUILD_Id)
 async def skip(interaction: discord.Interaction):
-    await interaction.response.defer()
+    await interaction.response.defer(thinking=True)
 
     vc = interaction.guild.voice_client
     if vc and vc.is_playing():
@@ -146,7 +176,7 @@ async def skip(interaction: discord.Interaction):
 
 @bot.tree.command(name="pause", description="Pause", guild=GUILD_Id)
 async def pause(interaction: discord.Interaction):
-    await interaction.response.defer()
+    await interaction.response.defer(thinking=True)
 
     vc = interaction.guild.voice_client
     if vc and vc.is_playing():
@@ -157,7 +187,7 @@ async def pause(interaction: discord.Interaction):
 
 @bot.tree.command(name="resume", description="Resume", guild=GUILD_Id)
 async def resume(interaction: discord.Interaction):
-    await interaction.response.defer()
+    await interaction.response.defer(thinking=True)
 
     vc = interaction.guild.voice_client
     if vc and vc.is_paused():
@@ -168,7 +198,7 @@ async def resume(interaction: discord.Interaction):
 
 @bot.tree.command(name="stop", description="Stop music", guild=GUILD_Id)
 async def stop(interaction: discord.Interaction):
-    await interaction.response.defer()
+    await interaction.response.defer(thinking=True)
 
     vc = interaction.guild.voice_client
     if vc:
@@ -182,7 +212,7 @@ async def stop(interaction: discord.Interaction):
 
 @bot.tree.command(name="sq", description="Show queue", guild=GUILD_Id)
 async def sq(interaction: discord.Interaction):
-    await interaction.response.defer()
+    await interaction.response.defer(thinking=True)
 
     if song_queue.empty():
         return await interaction.followup.send("📭 Queue is empty.")
