@@ -196,47 +196,13 @@ async def play(interaction: discord.Interaction, query: str):
             "❌ Couldn't find a playable version of this song."
         )
 
-    # Add to queue
-    song = await asyncio.to_thread(search_youtube, query)
-    song["requester"] = interaction.user
-    await song_queue.put(song)
-
     # If already playing → only add to queue
     if vc.is_playing() or vc.is_paused():
         return await interaction.followup.send(f"➕ Added to queue: **{song['title']}**")
 
-    # Not playing → start play loop
-    
-    embed = discord.Embed(
-        title="🎵 Now Playing",
-        description=f"**[{song['title']}]({song['webpage_url']})**",
-        color=discord.Color.red()
-    )
-
-    embed.set_thumbnail(url=song["thumbnail"])
-
-    embed.add_field(
-        name="👤 Requested by",
-        value=song["requester"].mention,
-        inline=True
-    )
-
-    minutes = song["duration"] // 60
-    seconds = song["duration"] % 60
-
-    embed.add_field(
-        name="⏱ Duration",
-        value=f"{minutes}:{seconds:02}",
-        inline=True
-    )
-
-    embed.set_footer(
-        text="Manhole Music Bot 🎶"
-    )
-
-    await interaction.followup.send(embed=embed)
-    
+    # Not playing → start play loop    
     bot.loop.create_task(player_loop(vc, interaction))
+    await interaction.delete_original_response()
 
 
 @bot.tree.command(name="skip", description="Skip song", guild=GUILD_Id)
