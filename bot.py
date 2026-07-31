@@ -106,15 +106,53 @@ async def player_loop(vc, interaction):
         url = song["url"]
         title = song["title"]
 
+        now_playing = song
+
         source = discord.FFmpegPCMAudio(
             url,
-            before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
+            before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
         )
 
-        vc.play(source)
+        try:
+            vc.play(source)
+        except Exception as e:
+            print(f"Play error: {e}")
+            continue
 
         if interaction:
-            await interaction.followup.send(f"🎵 Now playing: **{title}**")
+            embed = discord.Embed(
+                title="🎵 Now Playing",
+                description=f"### [{title}]({song['webpage_url']})",
+                color=discord.Color.red(),
+            )
+
+            if song.get("thumbnail"):
+                embed.set_thumbnail(url=song["thumbnail"])
+
+            embed.add_field(
+                name="👤 Requested by",
+                value=song["requester"].mention,
+                inline=True,
+            )
+
+            duration = song.get("duration", 0)
+            minutes, seconds = divmod(duration, 60)
+
+            embed.add_field(
+                name="⏱️ Duration",
+                value=f"{minutes}:{seconds:02}",
+                inline=True,
+            )
+
+            embed.add_field(
+                name="📃 Queue",
+                value=f"**{song_queue.qsize()}** songs waiting",
+                inline=True
+            )
+
+            embed.set_footer(text="🎶 Manhole Music Bot")
+
+            await interaction.channel.send(embed=embed)
 
         # Wait until finished
         while vc.is_playing() or vc.is_paused():
@@ -126,7 +164,8 @@ async def player_loop(vc, interaction):
             break  # queue empty → stop loop
 
     # Nothing left → disconnect
-    await vc.disconnect()
+    if vc.is_connected():
+        await vc.disconnect()
 
 
 # ======================= COMMANDS =======================
