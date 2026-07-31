@@ -278,10 +278,16 @@ async def sq(interaction: discord.Interaction):
 
 @bot.event
 async def on_ready():
-    guild = discord.Object(id=797091616807583745)
-    synced = await bot.tree.sync(guild=guild)
-    print(f"✅ Synced {len(synced)} commands.")
-    print(f"Bot connected as {bot.user}")
+    if os.getenv("BOT_MODE") == "prod":
+        guild = discord.Object(id=797091616807583745)
+        synced = await bot.tree.sync(guild=guild)
+        print(f"✅ Synced {len(synced)} commands.")
+        print(f"Bot connected as {bot.user}")
+    else:
+        bot.tree.clear_commands(guild=guild)
+        await bot.tree.sync(guild=guild)
+        print("Test mode - Slash commands not synced")
+        print(f"Bot connected as {bot.user}")
 
 
 bot.run(token)
