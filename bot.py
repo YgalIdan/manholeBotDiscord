@@ -25,27 +25,43 @@ bot_paused = False
 # --- YOUTUBE SEARCH ---
 def search_youtube(query):
     ydl_opts = {
-        'quiet': True,
-        'format': 'bestaudio/best',
-        'default_search': 'ytsearch1',
+        "quiet": True,
+        "noplaylist": True,
+        "default_search": "ytsearch",
+        "format": "bestaudio/best",
+        "extract_flat": False,
+        "skip_download": True,
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(query, download=False)
 
-        if 'entries' in info:
-            info = info['entries'][0]
+        if "entries" in info:
+            info = next((e for e in info["entries"] if e), None)
 
-        # Search for format with url
-        for f in info.get("formats", []):
-            if f.get("acodec") != "none" and f.get("url"):
-                return f["url"], info.get("title", "Unknown Title")
+        if not info:
+            raise Exception("No search results")
 
-        # fallback - some videos now hide URL formats
-        if info.get("url"):
-            return info["url"], info.get("title", "Unknown Title")
+        # URL שניתן לנגן
+        url = info.get("url")
 
-        raise Exception("No playable URL found")
+        # אם אין url, נסה לקחת מהפורמט הטוב ביותר
+        if not url:
+            formats = info.get("formats", [])
+            audio_formats = [
+                f for f in formats
+                if f.get("acodec") != "none" and f.get("url")
+            ]
+
+            if audio_formats:
+                # העדף bitrate גבוה יותר
+                audio_formats.sort(key=lambda f: f.get("abr") or 0, reverse=True)
+                url = audio_formats[0]["url"]
+
+        if not url:
+            raise Exception("No playable audio stream found")
+
+        return url, info.get("title", "Unknown Title")
 
 
 # --- PLAY LOOP (ONE TASK ONLY!) ---
@@ -97,10 +113,13 @@ async def play(interaction: discord.Interaction, query: str):
         vc = await interaction.user.voice.channel.connect()
 
     # Search YouTube
-    if "http" in query:
+    try:
         url, title = search_youtube(query)
-    else:
-        url, title = search_youtube(f"ytsearch:{query}")
+    except Exception as e:
+        print(e)
+        return await interaction.followup.send(
+            "❌ Couldn't find a playable version of this song."
+        )
 
     # Add to queue
     await song_queue.put((url, title))
