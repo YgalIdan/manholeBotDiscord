@@ -6,6 +6,7 @@ from discord import app_commands
 import yt_dlp
 import asyncio
 
+player_task = None
 token = os.getenv("TOKEN_BOT")
 start_with = os.getenv("START_WITH")
 GUILD_Id = discord.Object(id=797091616807583745)
@@ -34,8 +35,6 @@ CACHE_TTL = 60 * 60
 # --- NEW: REAL QUEUE IN MEMORY ---
 song_queue = asyncio.Queue()
 now_playing = None
-bot_paused = False
-
 
 # --- YOUTUBE SEARCH ---
 def search_youtube(query: str):
@@ -53,40 +52,40 @@ def search_youtube(query: str):
 
     info = ydl.extract_info(query, download=False)
 
+    # Search result
     if "entries" in info:
         info = next((e for e in info["entries"] if e), None)
 
     if info is None:
         raise Exception("No search results")
 
-    url = info.get("url")
+    # Find the best playable audio format
+    audio_formats = [
+        f for f in info.get("formats", [])
+        if f.get("acodec") != "none"
+        and f.get("vcodec") == "none"
+        and f.get("url")
+    ]
 
-    if not url:
-        formats = info.get("formats", [])
-
-        audio_formats = [
-            f for f in formats
-            if f.get("acodec") != "none"
-            and f.get("url")
-        ]
-
-        if audio_formats:
-            audio_formats.sort(
-                key=lambda f: f.get("abr") or 0,
-                reverse=True,
-            )
-
-            url = audio_formats[0]["url"]
-
-    if not url:
+    if not audio_formats:
         raise Exception("No playable audio stream")
 
+    # Prefer Opus/WebM with the highest bitrate
+    audio_formats.sort(
+        key=lambda f: (
+            f.get("acodec") != "opus",
+            -(f.get("abr") or 0)
+        )
+    )
+
+    best = audio_formats[0]
+
     result = {
-        "url": url,
+        "url": best["url"],
         "title": info.get("title", "Unknown Title"),
         "thumbnail": info.get("thumbnail"),
         "duration": info.get("duration", 0),
-        "webpage_url": info.get("webpage_url"),
+        "webpage_url": info.get("webpage_url")
     }
 
     youtube_cache[key] = (
@@ -99,18 +98,23 @@ def search_youtube(query: str):
 
 # --- PLAY LOOP (ONE TASK ONLY!) ---
 async def player_loop(vc, interaction):
-    global now_playing
+    global now_playing, player_task
 
     while True:
         song = await song_queue.get()
-        url = song["url"]
         title = song["title"]
 
         now_playing = song
 
+        before = (
+            "-reconnect 1 "
+            "-reconnect_streamed 1 "
+            "-reconnect_delay_max 5 "
+        )
+
         source = discord.FFmpegPCMAudio(
-            url,
-            before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+            song["url"],
+            before_options=before,
         )
 
         try:
@@ -121,11 +125,13 @@ async def player_loop(vc, interaction):
 
         if interaction:
             embed = discord.Embed(
-                title="🎵 Now Playing",
-                description=f"### [{title}]({song['webpage_url']})",
-                color=discord.Color.red(),
+                title=f"🎵 {title}",
+                url=song["webpage_url"],
+                color=discord.Color.red()
             )
 
+            embed.timestamp = discord.utils.utcnow()
+            
             if song.get("thumbnail"):
                 embed.set_thumbnail(url=song["thumbnail"])
 
@@ -136,11 +142,17 @@ async def player_loop(vc, interaction):
             )
 
             duration = song.get("duration", 0)
-            minutes, seconds = divmod(duration, 60)
+            hours, rem = divmod(duration, 3600)
+            minutes, seconds = divmod(rem, 60)
+
+            if hours:
+                duration_text = f"{hours}:{minutes:02}:{seconds:02}"
+            else:
+                duration_text = f"{minutes}:{seconds:02}"
 
             embed.add_field(
                 name="⏱️ Duration",
-                value=f"{minutes}:{seconds:02}",
+                value=duration_text,
                 inline=True,
             )
 
@@ -161,9 +173,10 @@ async def player_loop(vc, interaction):
         now_playing = None
 
         if song_queue.empty():
-            break  # queue empty → stop loop
+            break
 
-    # Nothing left → disconnect
+    player_task = None
+
     if vc.is_connected():
         await vc.disconnect()
 
@@ -173,6 +186,7 @@ async def player_loop(vc, interaction):
 @bot.tree.command(name="play", description="Play a song", guild=GUILD_Id)
 @app_commands.describe(query="YouTube URL or song name")
 async def play(interaction: discord.Interaction, query: str):
+    global player_task
     await interaction.response.defer(thinking=True)
 
     # Must be in voice
@@ -201,7 +215,8 @@ async def play(interaction: discord.Interaction, query: str):
         return await interaction.followup.send(f"➕ Added to queue: **{song['title']}**")
 
     # Not playing → start play loop    
-    bot.loop.create_task(player_loop(vc, interaction))
+    if player_task is None or player_task.done():
+        player_task = asyncio.create_task(player_loop(vc, interaction))
     await interaction.delete_original_response()
 
 
@@ -240,14 +255,20 @@ async def resume(interaction: discord.Interaction):
 
 @bot.tree.command(name="stop", description="Stop music", guild=GUILD_Id)
 async def stop(interaction: discord.Interaction):
+    global player_task, now_playing
     await interaction.response.defer(thinking=True)
 
     vc = interaction.guild.voice_client
     if vc:
         while not song_queue.empty():
-            song_queue.get_nowait()
+            try:
+                song_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
         vc.stop()
         await vc.disconnect()
+        player_task = None
+        now_playing = None
         return await interaction.followup.send("⏹️ Stopped and disconnected.")
     await interaction.followup.send("Bot is not in voice.")
 
