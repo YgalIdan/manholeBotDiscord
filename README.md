@@ -1,89 +1,95 @@
 # 🎶 Manhole Music Bot
 
-A lightweight and updated Discord music bot written in Python using `discord.py v2` and full support for **slash commands** (`/command` interface).  
-Plays music from YouTube by URL or search query, manages queue and playlists, and auto-disconnects when idle.
+A lightweight Discord music bot written in Python using **discord.py v2** with modern **Slash Commands** support.
 
-> ✅ **Current version: v2.1.0**  
-> ✨ Added full playlist support and improved stop command behavior.
+Play music directly from YouTube using a URL or search query, manage a queue, and enjoy a clean and responsive music experience.
 
----
-
-## 🚀 What's New in v2.1.0
-
-- ✅ **Full playlist support**  
-  Now you can load and play entire playlists seamlessly, with continuous playback of multiple tracks.  
-
-- ✅ **Stop command fix**  
-  When using `/stop`, the entire queue is now cleared automatically to prevent leftover songs in the queue.
-
-- ✅ Minor bug fixes and performance improvements.
+> ✅ **Current version: v2.2.0**
+> 🚀 Faster YouTube search, improved queue engine, redesigned "Now Playing" embeds and major internal improvements.
 
 ---
 
-## 🛠️ Available Slash Commands
+# 🚀 What's New in v2.2.0
 
-All commands must be used with `/` in any text channel where the bot is active.
+### ⚡ Faster song search
+- Improved YouTube searching.
+- Cached search results for frequently requested songs.
+- Search now runs in a background thread to keep the bot responsive.
 
-### 🎵 `/play <query or playlist URL>`
-Play a song or an entire playlist from a YouTube URL or search term.
-- If `<query>` is a YouTube video URL or search term, plays the song or queues it.
-- If a playlist URL is provided, queues all songs in the playlist for continuous playback.
+### 🎵 Redesigned music player
+- Beautiful **Now Playing** embed.
+- Song thumbnail.
+- Clickable YouTube title.
+- Requester's name.
+- Song duration.
+- Remaining queue size.
+- Automatic timestamp.
 
-### ⏸️ `/pause`
-Pause the currently playing song.
+### 🔄 Improved playback engine
+- Rewritten queue handling.
+- Prevents multiple playback loops.
+- Better playback stability.
+- Improved voice connection handling.
 
-### ▶️ `/resume`
-Resume playback if paused.
+### 🧪 Test / Production support
+- Test bot can run without publishing Slash Commands.
+- Production bot keeps the full Slash Command interface.
 
-### ⏹️ `/stop`
-Stop playback and disconnect the bot from the voice channel.  
-**Note:** This now also clears the entire queue.
-
-### 📃 `/sq`
-Display the current queue in order.
-
-### ⏭️ `/skip`
-Skip the current song and automatically play the next one in queue.
-
-### 🔢 `/jump <index>`
-Jump to a specific song number in the queue.
-
-### ❌ `/remove <index>`
-Remove a specific song from the queue by its position.
-
-### 🗑️ `/clear`
-Clear the entire song queue.
-
-### ⬆️ `/top <index>`
-Move a specific song in the queue to the top.
+### 🛠 Improvements
+- Better code structure.
+- Improved error handling.
+- General performance optimizations.
 
 ---
 
-## ⚙️ Automatic Behaviors
+# 🛠 Available Slash Commands
 
-- ✅ **Auto-queue handling**  
-  New songs or playlists added while one is playing will queue up automatically.
-  
-- ✅ **Auto-play next**  
-  When a song ends, the next one plays immediately using a coroutine-safe callback.
+## 🎵 `/play <song name | YouTube URL>`
+Search for a song or play directly from YouTube.
 
-- ✅ **Auto-disconnect**  
-  If no audio is playing for 200 seconds, the bot disconnects automatically from the voice channel.
+## ⏸️ `/pause`
+Pause playback.
+
+## ▶️ `/resume`
+Resume playback.
+
+## ⏭️ `/skip`
+Skip the current song.
+
+## ⏹️ `/stop`
+Stop playback, clear the queue and disconnect.
+
+## 📜 `/sq`
+Display the current queue.
 
 ---
 
-## 📦 Requirements
+# ⚙️ Features
 
-- Python 3.9+  
-- `discord.py` 2.0+  
-- `yt_dlp`  
-- `ffmpeg` installed and available in PATH  
+- 🎵 YouTube search
+- 🚀 Fast cached lookups
+- 📃 Queue management
+- 🖼 Rich "Now Playing" embeds
+- ⏭ Automatic next song
+- 🔄 Stable playback loop
+- 🎧 Automatic voice disconnect when queue ends
+- 🧪 Separate Test and Production modes
 
 ---
 
-## 🧪 Local Environment Setup
+# 📦 Requirements
 
-1. Clone the repository:  
-   ```bash
-   git clone https://github.com/YgalIdan/manholeBotDiscord.git
-   cd manholeBotDiscord
+- Python 3.13+
+- discord.py 2.5+
+- yt-dlp
+- FFmpeg
+
+---
+
+# 🧪 Local Development
+
+```bash
+git clone https://github.com/YgalIdan/manholeBotDiscord.git
+cd manholeBotDiscord
+pip install -r requirements.txt
+python bot.py

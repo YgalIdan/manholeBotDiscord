@@ -1,10 +1,12 @@
 import os
+import time
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
 import yt_dlp
 import asyncio
 
+player_task = None
 token = os.getenv("TOKEN_BOT")
 start_with = os.getenv("START_WITH")
 GUILD_Id = discord.Object(id=797091616807583745)
@@ -16,55 +18,153 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix=start_with, intents=intents)
 
+YDL_OPTS = {
+    "quiet": True,
+    "noplaylist": True,
+    "default_search": "ytsearch",
+    "format": "bestaudio/best",
+    "skip_download": True,
+    "extract_flat": False,
+}
+
+ydl = yt_dlp.YoutubeDL(YDL_OPTS)
+
+youtube_cache = {}
+CACHE_TTL = 60 * 60
+
 # --- NEW: REAL QUEUE IN MEMORY ---
 song_queue = asyncio.Queue()
 now_playing = None
-bot_paused = False
-
 
 # --- YOUTUBE SEARCH ---
-def search_youtube(query):
-    ydl_opts = {
-        'quiet': True,
-        'format': 'bestaudio/best',
-        'default_search': 'ytsearch1',
+def search_youtube(query: str):
+    key = query.lower().strip()
+
+    # Cache
+    cached = youtube_cache.get(key)
+    if cached:
+        ts, value = cached
+
+        if time.time() - ts < CACHE_TTL:
+            return value
+
+        del youtube_cache[key]
+
+    info = ydl.extract_info(query, download=False)
+
+    # Search result
+    if "entries" in info:
+        info = next((e for e in info["entries"] if e), None)
+
+    if info is None:
+        raise Exception("No search results")
+
+    # Find the best playable audio format
+    audio_formats = [
+        f for f in info.get("formats", [])
+        if f.get("acodec") != "none"
+        and f.get("vcodec") == "none"
+        and f.get("url")
+    ]
+
+    if not audio_formats:
+        raise Exception("No playable audio stream")
+
+    # Prefer Opus/WebM with the highest bitrate
+    audio_formats.sort(
+        key=lambda f: (
+            f.get("acodec") != "opus",
+            -(f.get("abr") or 0)
+        )
+    )
+
+    best = audio_formats[0]
+
+    result = {
+        "url": best["url"],
+        "title": info.get("title", "Unknown Title"),
+        "thumbnail": info.get("thumbnail"),
+        "duration": info.get("duration", 0),
+        "webpage_url": info.get("webpage_url")
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(query, download=False)
+    youtube_cache[key] = (
+        time.time(),
+        result,
+    )
 
-        if 'entries' in info:
-            info = info['entries'][0]
-
-        # Search for format with url
-        for f in info.get("formats", []):
-            if f.get("acodec") != "none" and f.get("url"):
-                return f["url"], info.get("title", "Unknown Title")
-
-        # fallback - some videos now hide URL formats
-        if info.get("url"):
-            return info["url"], info.get("title", "Unknown Title")
-
-        raise Exception("No playable URL found")
+    return result
 
 
 # --- PLAY LOOP (ONE TASK ONLY!) ---
 async def player_loop(vc, interaction):
-    global now_playing
+    global now_playing, player_task
 
     while True:
-        url, title = await song_queue.get()
-        now_playing = title
+        song = await song_queue.get()
+        title = song["title"]
 
-        source = discord.FFmpegPCMAudio(
-            url,
-            before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
+        now_playing = song
+
+        before = (
+            "-reconnect 1 "
+            "-reconnect_streamed 1 "
+            "-reconnect_delay_max 5 "
         )
 
-        vc.play(source)
+        source = discord.FFmpegPCMAudio(
+            song["url"],
+            before_options=before,
+        )
+
+        try:
+            vc.play(source)
+        except Exception as e:
+            print(f"Play error: {e}")
+            continue
 
         if interaction:
-            await interaction.followup.send(f"🎵 Now playing: **{title}**")
+            embed = discord.Embed(
+                title=f"🎵 {title}",
+                url=song["webpage_url"],
+                color=discord.Color.red()
+            )
+
+            embed.timestamp = discord.utils.utcnow()
+            
+            if song.get("thumbnail"):
+                embed.set_thumbnail(url=song["thumbnail"])
+
+            embed.add_field(
+                name="👤 Requested by",
+                value=song["requester"].mention,
+                inline=True,
+            )
+
+            duration = song.get("duration", 0)
+            hours, rem = divmod(duration, 3600)
+            minutes, seconds = divmod(rem, 60)
+
+            if hours:
+                duration_text = f"{hours}:{minutes:02}:{seconds:02}"
+            else:
+                duration_text = f"{minutes}:{seconds:02}"
+
+            embed.add_field(
+                name="⏱️ Duration",
+                value=duration_text,
+                inline=True,
+            )
+
+            embed.add_field(
+                name="📃 Queue",
+                value=f"**{song_queue.qsize()}** songs waiting",
+                inline=True
+            )
+
+            embed.set_footer(text="🎶 Manhole Music Bot")
+
+            await interaction.channel.send(embed=embed)
 
         # Wait until finished
         while vc.is_playing() or vc.is_paused():
@@ -73,10 +173,12 @@ async def player_loop(vc, interaction):
         now_playing = None
 
         if song_queue.empty():
-            break  # queue empty → stop loop
+            break
 
-    # Nothing left → disconnect
-    await vc.disconnect()
+    player_task = None
+
+    if vc.is_connected():
+        await vc.disconnect()
 
 
 # ======================= COMMANDS =======================
@@ -84,7 +186,8 @@ async def player_loop(vc, interaction):
 @bot.tree.command(name="play", description="Play a song", guild=GUILD_Id)
 @app_commands.describe(query="YouTube URL or song name")
 async def play(interaction: discord.Interaction, query: str):
-    await interaction.response.defer()
+    global player_task
+    await interaction.response.defer(thinking=True)
 
     # Must be in voice
     if not interaction.user.voice:
@@ -97,26 +200,29 @@ async def play(interaction: discord.Interaction, query: str):
         vc = await interaction.user.voice.channel.connect()
 
     # Search YouTube
-    if "http" in query:
-        url, title = search_youtube(query)
-    else:
-        url, title = search_youtube(f"ytsearch:{query}")
-
-    # Add to queue
-    await song_queue.put((url, title))
+    try:
+        song = await asyncio.to_thread(search_youtube, query)
+        song["requester"] = interaction.user
+        await song_queue.put(song)
+    except Exception as e:
+        print(e)
+        return await interaction.followup.send(
+            "❌ Couldn't find a playable version of this song."
+        )
 
     # If already playing → only add to queue
     if vc.is_playing() or vc.is_paused():
-        return await interaction.followup.send(f"➕ Added to queue: **{title}**")
+        return await interaction.followup.send(f"➕ Added to queue: **{song['title']}**")
 
-    # Not playing → start play loop
-    await interaction.followup.send(f"🎶 Starting queue with: **{title}**")
-    bot.loop.create_task(player_loop(vc, interaction))
+    # Not playing → start play loop    
+    if player_task is None or player_task.done():
+        player_task = asyncio.create_task(player_loop(vc, interaction))
+    await interaction.delete_original_response()
 
 
 @bot.tree.command(name="skip", description="Skip song", guild=GUILD_Id)
 async def skip(interaction: discord.Interaction):
-    await interaction.response.defer()
+    await interaction.response.defer(thinking=True)
 
     vc = interaction.guild.voice_client
     if vc and vc.is_playing():
@@ -127,7 +233,7 @@ async def skip(interaction: discord.Interaction):
 
 @bot.tree.command(name="pause", description="Pause", guild=GUILD_Id)
 async def pause(interaction: discord.Interaction):
-    await interaction.response.defer()
+    await interaction.response.defer(thinking=True)
 
     vc = interaction.guild.voice_client
     if vc and vc.is_playing():
@@ -138,7 +244,7 @@ async def pause(interaction: discord.Interaction):
 
 @bot.tree.command(name="resume", description="Resume", guild=GUILD_Id)
 async def resume(interaction: discord.Interaction):
-    await interaction.response.defer()
+    await interaction.response.defer(thinking=True)
 
     vc = interaction.guild.voice_client
     if vc and vc.is_paused():
@@ -149,39 +255,59 @@ async def resume(interaction: discord.Interaction):
 
 @bot.tree.command(name="stop", description="Stop music", guild=GUILD_Id)
 async def stop(interaction: discord.Interaction):
-    await interaction.response.defer()
+    global player_task, now_playing
+    await interaction.response.defer(thinking=True)
 
     vc = interaction.guild.voice_client
     if vc:
         while not song_queue.empty():
-            song_queue.get_nowait()
+            try:
+                song_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
         vc.stop()
         await vc.disconnect()
+        player_task = None
+        now_playing = None
         return await interaction.followup.send("⏹️ Stopped and disconnected.")
     await interaction.followup.send("Bot is not in voice.")
 
 
 @bot.tree.command(name="sq", description="Show queue", guild=GUILD_Id)
 async def sq(interaction: discord.Interaction):
-    await interaction.response.defer()
+    await interaction.response.defer(thinking=True)
 
     if song_queue.empty():
         return await interaction.followup.send("📭 Queue is empty.")
 
     tmp = list(song_queue._queue)
 
-    msg = "📃 **Queue:**\n"
-    for i, (_, title) in enumerate(tmp, start=1):
-        msg += f"**{i}.** {title}\n"
+    embed = discord.Embed(
+        title="📜 Music Queue",
+        color=discord.Color.blurple()
+    )
 
-    await interaction.followup.send(msg)
+    for i, song in enumerate(tmp, start=1):
+        embed.add_field(
+            name=f"{i}. {song['title']}",
+            value=f"👤 Requested by: **{song['requester'].mention}**",
+            inline=False
+        )
+
+    await interaction.followup.send(embed=embed)
 
 
 @bot.event
 async def on_ready():
     guild = discord.Object(id=797091616807583745)
-    synced = await bot.tree.sync(guild=guild)
-    print(f"✅ Synced {len(synced)} commands.")
+    if os.getenv("BOT_MODE") == "prod":
+        synced = await bot.tree.sync(guild=guild)
+        print(f"✅ Synced {len(synced)} commands.")
+    else:
+        bot.tree.clear_commands(guild=guild)
+        await bot.tree.sync(guild=guild)
+        print("Test mode - Slash commands not synced")
+    
     print(f"Bot connected as {bot.user}")
 
 
