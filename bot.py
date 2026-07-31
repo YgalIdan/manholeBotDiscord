@@ -81,10 +81,13 @@ def search_youtube(query: str):
     if not url:
         raise Exception("No playable audio stream")
 
-    result = (
-        url,
-        info.get("title", "Unknown Title")
-    )
+    result = {
+        "url": url,
+        "title": info.get("title", "Unknown Title"),
+        "thumbnail": info.get("thumbnail"),
+        "duration": info.get("duration", 0),
+        "webpage_url": info.get("webpage_url"),
+    }
 
     youtube_cache[key] = (
         time.time(),
@@ -99,8 +102,9 @@ async def player_loop(vc, interaction):
     global now_playing
 
     while True:
-        url, title = await song_queue.get()
-        now_playing = title
+        song = await song_queue.get()
+        url = song["url"]
+        title = song["title"]
 
         source = discord.FFmpegPCMAudio(
             url,
@@ -144,7 +148,9 @@ async def play(interaction: discord.Interaction, query: str):
 
     # Search YouTube
     try:
-        url, title = await asyncio.to_thread(search_youtube, query)
+        song = await asyncio.to_thread(search_youtube, query)
+        song["requester"] = interaction.user
+        await song_queue.put(song)
     except Exception as e:
         print(e)
         return await interaction.followup.send(
@@ -152,14 +158,45 @@ async def play(interaction: discord.Interaction, query: str):
         )
 
     # Add to queue
-    await song_queue.put((url, title))
+    song = await asyncio.to_thread(search_youtube, query)
+    song["requester"] = interaction.user
+    await song_queue.put(song)
 
     # If already playing → only add to queue
     if vc.is_playing() or vc.is_paused():
-        return await interaction.followup.send(f"➕ Added to queue: **{title}**")
+        return await interaction.followup.send(f"➕ Added to queue: **{song['title']}**")
 
     # Not playing → start play loop
-    await interaction.followup.send(f"🎶 Starting queue with: **{title}**")
+    
+    embed = discord.Embed(
+        title="🎵 Now Playing",
+        description=f"**[{song['title']}]({song['webpage_url']})**",
+        color=discord.Color.red()
+    )
+
+    embed.set_thumbnail(url=song["thumbnail"])
+
+    embed.add_field(
+        name="👤 Requested by",
+        value=song["requester"].mention,
+        inline=True
+    )
+
+    minutes = song["duration"] // 60
+    seconds = song["duration"] % 60
+
+    embed.add_field(
+        name="⏱ Duration",
+        value=f"{minutes}:{seconds:02}",
+        inline=True
+    )
+
+    embed.set_footer(
+        text="Manhole Music Bot 🎶"
+    )
+
+    await interaction.followup.send(embed=embed)
+    
     bot.loop.create_task(player_loop(vc, interaction))
 
 
@@ -219,11 +256,19 @@ async def sq(interaction: discord.Interaction):
 
     tmp = list(song_queue._queue)
 
-    msg = "📃 **Queue:**\n"
-    for i, (_, title) in enumerate(tmp, start=1):
-        msg += f"**{i}.** {title}\n"
+    embed = discord.Embed(
+        title="📜 Music Queue",
+        color=discord.Color.blurple()
+    )
 
-    await interaction.followup.send(msg)
+    for i, song in enumerate(tmp, start=1):
+        embed.add_field(
+            name=f"{i}. {song['title']}",
+            value=f"👤 Requested by: **{song['requester'].mention}**",
+            inline=False
+        )
+
+    await interaction.followup.send(embed=embed)
 
 
 @bot.event
